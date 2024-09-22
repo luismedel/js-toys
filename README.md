@@ -49,7 +49,7 @@ Realtime lens effect.
 
 Basic physical simulation.
 
-![Screenshot](https://raw.githubusercontent.com/luismedel/js-tyos/master/mesh/preview.gif "Preview")
+![Screenshot](https://raw.githubusercontent.com/luismedel/js-toys/master/mesh/preview.gif "Preview")
 
 ## fire
 
