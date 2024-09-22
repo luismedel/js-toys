@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	</head>
+	<body>
+		<script type="text/javascript" src="lib.js"></script>
+		<script type="text/javascript">
+			var S_W, S_H;
+
+			var SP_RADIUS = 300,
+				IMG_Z = 288,
+				SP_VISIBLE_RADIUS = (Math.sin (Math.acos (IMG_Z / SP_RADIUS)) * SP_RADIUS) | 0;
+
+			var TINT_DELAY = 3000;
+
+			var screen, bg, buffer,
+				sphere = [];
+
+			var bgImageData,
+				tmpImageData;
+
+			var mouseActive = false,
+				sx = 0,
+				sy = 0;
+
+			var colors = [];
+			MakeColorRamp ([0, 0, 0], [128, 128, 0], 128, colors);
+			MakeColorRamp ([128, 128, 0], [255, 255, 0], 128, colors);
+			MakeColorRamp ([255, 255, 0], [0, 0, 128], 128, colors);
+			MakeColorRamp ([0, 0, 128], [0, 255, 255], 128, colors);
+			MakeColorRamp ([0, 255, 255], [0, 0, 0], 128, colors);
+
+			var currentColor = colors[0],
+				currentColorIndex = 0;
+
+			function init ()
+			{
+				initSphere ();
+
+				bgImageData = bg.getImageData (0, 0, bg.width, bg.height);
+				tmpImageData = bg.getImageData (0, 0, SP_VISIBLE_RADIUS * 2, SP_VISIBLE_RADIUS * 2);
+
+				document.body.appendChild (screen.canvas);
+
+				screen.canvas.addEventListener ("mousemove", function (e) {
+					mouseActive = true;
+					sx = e.clientX;
+					sy = e.clientY;
+					e.preventDefault ();
+
+					return false;
+				}, false);
+			}
+
+			function initSphere ()
+			{
+				var offset = 0;
+
+				for (var j = 0; j < SP_VISIBLE_RADIUS * 2; j++)
+				{
+					for (var i = 0; i < SP_VISIBLE_RADIUS * 2; i++)
+					{
+						var x = i - SP_VISIBLE_RADIUS,
+							y = j - SP_VISIBLE_RADIUS;
+
+						var newOffset = [x, y, 0]; // z == 1 --> tint pixel
+
+						if (Math.sqrt (x*x + y*y) <= SP_VISIBLE_RADIUS)
+						{
+							var z = Math.sqrt (SP_RADIUS*SP_RADIUS - x*x - y*y) - IMG_Z;
+
+							if (z > 0)
+							{
+								z /= 3;
+								newOffset = [(x/z)|0, (y/z)|0, 1];
+							}
+						}
+
+						sphere.push (newOffset);
+					}
+				}
+			}
+
+			function update (dt)
+			{ }
+
+			function render (dt)
+			{
+				buffer.drawImage (bg.canvas, 0, 0, bg.width, bg.height);
+				renderSphere (sx, sy, buffer);
+				screen.drawImage (buffer.canvas, 0, 0);
+			}
+
+			function renderSphere (ox, oy, dest)
+			{
+				var offset = 0;
+				
+				for (var i = 0; i < sphere.length; i++)
+				{
+					var p = sphere[i],
+						x = ox + p[0],
+						y = oy + p[1];
+
+					var srcOffset = (y * bg.width * 4) + (x * 4);
+
+					if (p[2] == 1)
+					{
+						tmpImageData.data[offset + 0] = (bgImageData.data[srcOffset + 0] + currentColor[0]) / 2.0 | 0;
+						tmpImageData.data[offset + 1] = (bgImageData.data[srcOffset + 1] + currentColor[1]) / 2.0 | 0;
+						tmpImageData.data[offset + 2] = (bgImageData.data[srcOffset + 2] + currentColor[2]) / 2.0 | 0;
+					}
+					else
+					{
+						tmpImageData.data[offset + 0] = bgImageData.data[srcOffset + 0];
+						tmpImageData.data[offset + 1] = bgImageData.data[srcOffset + 1];
+						tmpImageData.data[offset + 2] = bgImageData.data[srcOffset + 2];
+					}
+
+					offset += 4;
+				}
+
+				dest.putImageData (tmpImageData, ox - SP_VISIBLE_RADIUS, oy - SP_VISIBLE_RADIUS);			
+			}
+
+			loadImage ("bg2.jpg", function (img) {
+				S_W = img.width;
+				S_H = img.height;
+
+				screen = new Buffer (S_W, S_H),
+				bg = new Buffer (S_W, S_H),
+				buffer = new Buffer (S_W, S_H),
+
+				bg.drawImage (img, 0, 0);
+
+				init ();
+
+				var scene = new Scene (update, render);
+
+				scene.addEvent ("mouseReset", function (scene) { mouseActive = false; }, 5000, true);
+				
+				scene.addEvent ("updatePos", function (scene) {
+					if (mouseActive)
+						return;
+
+					var w = S_W - 200,
+						h = S_H - 200;
+					
+					var tt = scene.t / 100;
+					
+					sx = (S_W / 2) + Math.sin (((tt % 100) / 100) * Math.PI * 4) * w / 2 | 0;
+					sy = (S_H / 2) + Math.sin (((tt % 100) / 100) * Math.PI * 6) * h / 2 | 0;
+				}, 1000 / 60, true);
+
+				scene.addEvent ("updateTint", function (scene) {
+					currentColorIndex = (currentColorIndex + 1) % colors.length;
+					currentColor = colors[currentColorIndex];
+				}, 1000 / 30, true);
+				
+				scene.start ();
+			});
+		</script>
+	</body>
+</html>

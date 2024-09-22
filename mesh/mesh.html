@@ -1,0 +1,237 @@
+<!DOCTYPE html> <!-- -->
+<html>
+	<body>
+		<canvas id="canvas" width="640" height="480"></canvas>
+	
+		<script type="text/javascript">
+		
+			function point (x, y)
+			{
+				return { x:x, y:y, f:{x:0,y:0}, fixed:false };
+			}
+			
+			function joint (a, b)
+			{
+				return {
+					a: a,
+					b: b,
+					length: Math.sqrt ((b.x-a.x)*(b.x-a.x) + (b.y-a.y)*(b.y-a.y))
+				};
+			}
+
+			function updateJoint (joint, dt)
+			{
+				var a = joint.a,
+					b = joint.b,
+					d = point (b.x - a.x, b.y - a.y),
+					length = Math.sqrt (d.x*d.x + d.y*d.y),
+					n = point (d.x / length, d.y / length);
+
+				var SPEED = 25,
+					FRICTION = 0.95;
+
+				var dlength = (length - joint.length) / 2.0;
+				
+				if (a.fixed)
+				{
+					b.f.x -= n.x * dlength * 2;
+					b.f.y -= n.y * dlength * 2;
+
+					b.x += b.f.x * dt * SPEED;
+					b.y += b.f.y * dt * SPEED;
+					b.f.x *= 0.8;
+					b.f.y *= 0.8;
+				}
+				else if (b.fixed)
+				{
+					a.f.x += n.x * dlength * 2;
+					a.f.y += n.y * dlength * 2;
+
+					a.x += a.f.x * dt * SPEED;
+					a.y += a.f.y * dt * SPEED;
+					a.f.x *= FRICTION;
+					a.f.y *= FRICTION;
+				}
+				else
+				{
+					a.f.x += n.x * dlength;
+					a.f.y += n.y * dlength;
+
+					b.f.x -= n.x * dlength;
+					b.f.y -= n.y * dlength;
+
+					a.x += a.f.x * dt * SPEED;
+					a.y += a.f.y * dt * SPEED;
+					a.f.x *= FRICTION;
+					a.f.y *= FRICTION;
+
+					b.x += b.f.x * dt * SPEED;
+					b.y += b.f.y * dt * SPEED;
+					b.f.x *= FRICTION;
+					b.f.y *= FRICTION;
+				}
+			}
+
+			function Mesh (joints)
+			{
+				this.joints = joints;
+			}
+
+			Mesh.prototype.update = function (dt) {
+				var joints = this.joints;
+				for (var i = 0; i < joints.length; i++)
+					updateJoint (joints[i], dt);
+			};
+
+			Mesh.prototype.render = function (ctx) {
+				var joints = this.joints;
+
+				ctx.beginPath ();
+
+				for (var i = 0; i < joints.length; i++)
+				{
+					var joint = joints[i],
+						a = joint.a,
+						b = joint.b;
+
+					ctx.rect (a.x - 3, a.y - 3, 6, 6);
+					ctx.rect (b.x - 3, b.y - 3, 6, 6);
+
+					ctx.moveTo (a.x, a.y);
+					ctx.lineTo (b.x, b.y);
+				}
+				
+				ctx.stroke ();
+			};
+			
+			var canvas = document.getElementById ("canvas"),
+				ctx = canvas.getContext ("2d");
+
+			var MESH_W = 10,
+				MESH_H = 5,
+				points = [];
+
+			for (var j = 0; j < MESH_H; j++)
+			{
+				for (var i = 0; i < MESH_W; i++)
+				{
+					points.push (point (i * 40, j * 40));
+				}
+			}
+
+			points[0].fixed = true;
+			points[MESH_W - 1].fixed = true;
+
+			var joints = [];
+
+			for (var j = 0; j < MESH_H; j++)
+			{
+				for (var i = 0; i < MESH_W; i++)
+				{
+					if (i < MESH_W - 1)
+					{
+						var a = points[j*MESH_W + i],
+							b = points[j*MESH_W + i + 1];
+
+						joints.push (joint (a, b));
+					}
+
+					if (j < MESH_H - 1)
+					{
+						var a = points[j*MESH_W + i],
+							b = points[(j+1)*MESH_W + i];
+
+						joints.push (joint (a, b));
+					}
+				}
+			}
+
+			var m = new Mesh (joints);
+			
+			m.render (ctx);
+		
+			var mdown = true,
+				mx = 0,
+				my = 0;
+				pindex = -1,
+				unfix = false;
+
+			canvas.addEventListener ("mousedown", function (e) {
+				var p = point (e.clientX, e.clientY);
+
+				var EPSILON = 5*5;
+
+				var bestDist = 100000,
+					bestIndex = -1;
+
+				for (var i = 0; i < points.length; i++)
+				{
+					var test = points[i],
+						dx = p.x - test.x,
+						dy = p.y - test.y,
+						dist2 = dx*dx + dy*dy;
+
+					if (dist2 < bestDist)
+					{
+						bestDist = dist2;
+						bestIndex = i;
+						
+						if (dist2 < EPSILON)
+							break;
+					}
+				}
+
+				pindex = bestIndex;
+				if (pindex != -1)
+				{
+					unfix = !points[pindex].fixed;
+					if (unfix)
+						points[pindex].fixed = true;
+				}
+
+				mdown = true;
+				mx = e.clientX;
+				my = e.clientY;
+			}, false);
+
+			canvas.addEventListener ("mouseup", function () {
+				if (unfix)
+					points[pindex].fixed = false;
+
+				mdown = false;
+				pindex = -1;
+			}, false);
+
+			canvas.addEventListener ("mousemove", function (e) {
+				if (pindex == -1)
+					return;
+
+				var dx = e.clientX - mx,
+					dy = e.clientY - my;
+
+				points[pindex].x += dx;
+				points[pindex].y += dy;
+
+				mx = e.clientX;
+				my = e.clientY;
+			}, false);
+			
+			var t = new Date ().getTime ();
+
+			setInterval (function () {
+				for (var i = 0; i < points.length; i++)
+					points[i].f.y += 0.9;
+
+				var now = new Date ().getTime (),
+					dt = Math.min (now - t, 1000 / 60) / 1000;
+
+				m.update (dt);
+				t = now;
+
+				ctx.clearRect (0, 0, 640, 480);
+				m.render (ctx);
+			}, 1000 / 60);
+
+		</script>
+	</body>
+</html>

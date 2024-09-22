@@ -1,0 +1,177 @@
+<!DOCTYPE html> <!-- -->
+<html>
+	<head>
+		<style type="text/css">
+			* { padding:0; margin:0; border:none; }
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+		
+		<script type="text/javascript">
+
+			var PATH = "mario.png",
+				MAX_CONCURRENT_POINTS = 1024;
+
+			var POINT_FILL_RATE = 4,
+				POINT_TTL = 1000;
+
+			var canvas = document.getElementById ("canvas"),
+				ctx,
+				bg, bgCtx;
+
+			var points = new Array (MAX_CONCURRENT_POINTS),
+				offsetx = 0, offsety = 0,
+				remainingPoints,
+				imageData,
+				fillDelta = 0;
+
+			var ox = 0,
+				dox = 1;
+
+			var t;
+
+			function init ()
+			{
+				var img = new Image ();
+				img.onload = function () {
+					canvas.width = img.width;
+					canvas.height = img.height;
+					ctx = canvas.getContext ("2d");
+					
+					bg = document.createElement ("canvas");
+					bg.width = img.width;
+					bg.height = img.height;
+					bgCtx = bg.getContext ("2d");
+
+					ctx.drawImage (img, 0, 0);
+
+					imageData = ctx.getImageData (0, 0, img.width, img.height);
+					remainingPoints = img.width * img.height;
+					ctx.clearRect (0, 0, img.width, img.height);
+
+					requestAnimationFrame (step);
+				};
+
+				img.src = PATH;
+			}
+			
+			function fillPoints (dt)
+			{
+				fillDelta += dt;
+				if (fillDelta < POINT_FILL_RATE)
+					return;
+
+				fillDelta -= POINT_FILL_RATE;
+				
+				var w = canvas.width,
+					w2 = w / 2,
+					h2 = canvas.height / 2;
+				
+			
+				for (var i = 0; (i < MAX_CONCURRENT_POINTS) && (remainingPoints > 0); i++)
+				{
+					if (points[i])
+						continue;
+
+					remainingPoints--;
+
+					var offset = ((offsety * 4) * w) + ((offsetx++) * 4);
+					
+					if (offsetx > canvas.width)
+					{
+						offsetx = 0;
+						offsety++;
+					}
+					
+					if (imageData.data[offset + 3] == 0)
+						continue;
+
+					ox = ox + dox;
+					
+					var x = (ox - w2) | 0,
+						y = h2 + (Math.sin (ox / w2 * Math.PI * 2) * h2);
+
+					if (ox < 0 || ox > canvas.width)
+						dox *= -1;
+
+					var r = imageData.data[offset],
+						g = imageData.data[offset + 1],
+						b = imageData.data[offset + 2];
+
+					var color = "rgba(" + r + "," + g + "," + b + ", 1)";
+					points[i] = [offsetx, offsety, ox, y, 0, color];
+					break;
+				}
+			}
+			
+			function update (dt)
+			{
+				for (var i = 0 ; i < MAX_CONCURRENT_POINTS; i++)
+				{
+					var p = points[i];
+					if (!p)
+						continue;
+
+					var destx = p[0],
+						desty = p[1],
+						delta = p[4] + dt;
+
+					if (delta >= POINT_TTL)
+					{
+						bgCtx.fillStyle = p[5];
+						bgCtx.fillRect (destx, desty, 1, 1);
+						points[i] = null;
+						continue;
+					}
+
+					p[4] = delta;
+
+					var x = p[2],
+						y = p[3],
+						dx = destx - x,
+						dy = desty - y,
+						ratio = delta / POINT_TTL;
+						
+					ratio *= ratio * ratio;
+
+					p[2] = x + (dx * ratio);
+					p[3] = y + (dy * ratio);
+				}
+
+				fillPoints (dt);
+			}
+			
+			function render ()
+			{
+				ctx.clearRect (0, 0, canvas.width, canvas.height);
+				ctx.drawImage (bg, 0, 0);
+
+				for (var i = 0 ; i < MAX_CONCURRENT_POINTS; i++)
+				{
+					var p = points[i];
+					if (!p)
+						continue;
+
+					ctx.fillStyle = p[5];
+					ctx.fillRect (p[2], p[3], 1, 1);
+				}
+			}
+			
+			function step ()
+			{
+				requestAnimationFrame (step);
+				
+				var now = new Date ().getTime (),
+					dt = now - t;
+
+				update (dt);
+				render ();
+
+				t = now;
+			}
+			
+			init ();			
+		</script>
+	</body>
+</html>

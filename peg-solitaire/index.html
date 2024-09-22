@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width; initial-scale=1; maximum-scale=1; user-scalable=0;"/>
+		<style type="text/css">
+			* { margin:0; padding:0; background-color: #000; }
+			canvas { float:left; display:block; }
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" width="100%" height="100%"></canvas>
+
+		<script type="text/javascript" src="../inc/animationtask.js"></script>
+		<script type="text/javascript">
+			var SCREEN_W = 768,
+				SCREEN_H = 1024,
+				MAX_PEGS = 9;
+
+			var PEG_SIZE = Math.min (Math.floor (SCREEN_W / MAX_PEGS), Math.floor (SCREEN_H / MAX_PEGS)) | 0;
+			
+			var BOARD_OFFSET = {
+				x: (SCREEN_W - (MAX_PEGS * PEG_SIZE)) / 2,
+				y: (SCREEN_H - (MAX_PEGS * PEG_SIZE)) / 2,
+			};
+
+			var MAPS = [
+				[".........",
+				 "...111...",
+				 "...111...",
+				 ".1111111.",
+				 ".111E111.",
+				 ".1111111.",
+				 "...111...",
+				 "...111...",
+				 "........."]
+			];
+
+			var processInput = true;	
+								
+			var canvas = document.getElementById ("canvas"),
+				ctx = canvas.getContext ("2d");
+
+			var buffer = document.createElement ("canvas");
+
+			var imgBg = loadImage ("bg.jpg", invalidateBoard),
+				imgPeg = loadImage ("peg3.png", invalidateBoard),
+				imgPegSelected = loadImage ("peg2.png", invalidateBoard),
+				imgHole = loadImage ("hole.png", invalidateBoard);
+			
+			var currentMapIndex = 0,
+				currentBoard = [];
+
+			var boardInfo = {
+				dirty: true,
+				remainingPegs: 0
+			};
+			
+			var selectedPeg = [-1, -1],
+				screenPressed = false,
+				isDragging = false,
+				draggedPegX, draggedPegY,
+				dragX, dragY;
+			
+			var startTime,
+				endTime,
+				updateTime = true;
+
+			function updateUIConstraints ()
+			{
+				SCREEN_W = window.innerWidth;
+				SCREEN_H = window.innerHeight;
+				
+				PEG_SIZE = Math.min (Math.floor (SCREEN_W / MAX_PEGS), Math.floor (SCREEN_H / MAX_PEGS)) | 0,
+				BOARD_OFFSET.x = (SCREEN_W - (MAX_PEGS * PEG_SIZE)) / 2;
+				BOARD_OFFSET.y = (SCREEN_H - (MAX_PEGS * PEG_SIZE)) / 2;
+			}
+				
+			function loadImage (src, onload)
+			{
+				var result = new Image ();
+				result.onload = onload;
+				result.src = src;
+				return result;
+			}
+				
+			function invalidateBoard ()
+			{
+				boardInfo.dirty = true;
+			}
+				
+			function initBoard ()
+			{
+				var map = MAPS[currentMapIndex],
+					pegCount = 0;
+				
+				currentBoard = new Array (map.length);
+				
+				for (var j = 0; j < map.length; j++)
+				{
+					var mapRow = map[j],
+						boardRow = new Array (mapRow.length);
+
+					for (var i = 0; i < mapRow.length; i++)
+					{
+						var peg = mapRow.charAt (i);
+						if (peg == '.')
+							boardRow[i] = '.';
+						else if (peg == 'E')
+							boardRow[i] = 0;
+						else if (peg == '0')
+							boardRow[i] = 0;
+						else
+						{
+							boardRow[i] = 1;
+							pegCount++;
+						}
+					}
+					
+					currentBoard[j] = boardRow;
+				}
+
+				boardInfo.remainingPegs = pegCount;
+			}
+			
+			function getPeg (col, row)
+			{
+				if (row < 0 || col < 0 || row > MAX_PEGS - 1 || col > MAX_PEGS - 1)
+					return '.';
+
+				return currentBoard[row][col];
+			}
+			
+			function setPeg (col, row, peg)
+			{
+				if (row < 0 || col < 0 || row > MAX_PEGS - 1 || col > MAX_PEGS - 1)
+					return;
+				
+				currentBoard[row][col] = peg;
+				invalidateBoard ();
+			}
+			
+			function isFreeCell (col, row)
+			{
+				return getPeg (col, row) == 0;
+			}
+
+			function isValidMove (fromCol, fromRow, toCol, toRow)
+			{
+				var fromPeg = getPeg (fromCol, fromRow),
+					toPeg = getPeg (toCol, toRow);
+
+				if (fromPeg != 1 ||  toPeg == '.' || toPeg == 1)
+					return false;
+
+				var dx = toCol - fromCol,
+					dy = toRow - fromRow;
+
+				if (!((dx == 0 && Math.abs (dy) == 2) ||
+				      (dy == 0 && Math.abs (dx) == 2)))
+					return false;
+
+				if (getPeg (fromCol + Math.sign (dx), fromRow + Math.sign (dy)) != 1)
+					return false;
+
+				return true;
+			}
+
+			function tryMakeMove (fromCol, fromRow, toCol, toRow)
+			{
+				if (!isValidMove (fromCol, fromRow, toCol, toRow))
+					return false;
+
+				var peg = getPeg (fromCol, fromRow);
+				setPeg (fromCol, fromRow, 0);
+				setPeg (toCol, toRow, peg);
+				
+				if (fromCol == toCol) // vertical
+					setPeg (fromCol, fromRow + (toRow > fromRow ? +1 : -1), 0);
+				else // horizontal
+					setPeg (fromCol + (toCol > fromCol ? +1 : -1), fromRow, 0);
+				
+				boardInfo.remainingPegs--;
+				
+				return true;
+			}
+			
+			function findValidMoves ()
+			{
+				for (var j = 0; j < MAX_PEGS; j++)
+				{
+					for (var i = 0; i < MAX_PEGS; i++)
+					{
+						if (getPeg (i, j) != 1)
+							continue;
+
+						if (isValidMove (i, j, i - 2, j)
+						 || isValidMove (i, j, i + 2, j)
+						 || isValidMove (i, j, i, j - 2)
+						 || isValidMove (i, j, i, j + 2))
+							return true;
+					}
+				}
+
+				return false;
+			}
+			
+			function renderPeg (ctx, x, y, selected, dragged)
+			{
+				var img = selected ? imgPegSelected : imgPeg;
+				if (dragged)
+					ctx.drawImage (img, x + 2, y + 2, PEG_SIZE - 4, PEG_SIZE - 4);
+				else
+					ctx.drawImage (img, x + 8, y + 8, PEG_SIZE - 16, PEG_SIZE - 16);
+			}
+
+			function renderHole (ctx, x, y)
+			{
+				ctx.drawImage (imgHole, x + 5, y + 5, PEG_SIZE - 10, PEG_SIZE - 10);
+			}
+
+			function updateBoardBuffer (ctx)
+			{
+				buffer.width = SCREEN_W;
+				buffer.height = SCREEN_H;
+				var ctx = buffer.getContext ("2d");
+				ctx.clearRect (0, 0, SCREEN_W, SCREEN_H);
+
+				for (var j = 0; j < currentBoard.length; j++)
+				{
+					var row = currentBoard[j];
+					for (var i = 0; i < row.length; i++)
+					{
+						var c = row[i];
+						if (c == '.')
+							continue;
+
+						renderHole (ctx, BOARD_OFFSET.x + (i * PEG_SIZE),
+										 BOARD_OFFSET.y + (j * PEG_SIZE));
+							
+						if (c == 0)
+							continue;
+
+						renderPeg (ctx, BOARD_OFFSET.x + (i * PEG_SIZE),
+										BOARD_OFFSET.y + (j * PEG_SIZE),
+										j == selectedPeg[1] && i == selectedPeg[0]);
+					}
+				}
+			}
+
+			function renderBoard ()
+			{
+				if (window.innerWidth != canvas.width && window.innerHeight != canvas.height)
+				{
+					canvas.width = window.innerWidth;
+					canvas.height = window.innerHeight;
+
+					updateUIConstraints ();
+					invalidateBoard ();
+				}
+
+				ctx.drawImage (imgBg, 0, 0, SCREEN_W, SCREEN_H);
+
+				if (boardInfo.dirty)
+				{
+					boardInfo.dirty = false;
+					updateBoardBuffer ();
+				}
+				ctx.drawImage (buffer, 0, 0);
+				
+				if (isDragging)
+					renderPeg (ctx, draggedPegX, draggedPegY, true, isDragging);
+
+				var t = updateTime ? new Date ().getTime () : endTime;
+				var dt = t - startTime;
+				var ss = (dt / 1000) | 0,
+					mm = Math.floor (ss / 60);
+
+				ss -= mm * 60;
+				
+				if (ss < 10)
+					ss = "0" + ss;
+				
+				if (mm < 10)
+					mm = "0" + mm;
+
+				ctx.font = PEG_SIZE + "px Arial";
+				ctx.textBaseline = "top";
+
+				ctx.fillStyle = "#483C32";
+				ctx.fillText (mm + ":" + ss, 8, 8);
+
+				ctx.fillStyle = "#fff";
+				ctx.fillText (mm + ":" + ss, 5, 5);
+				ctx.strokeText (mm + ":" + ss, 5, 5);
+			}
+			
+			function checkGame ()
+			{
+				console.log (boardInfo.remainingPegs, " remaining pegs");
+
+				if (boardInfo.remainingPegs == 1)
+				{
+					endTime = new Date ().getTime ();
+					updateTime = false;
+					alert  ("YOU WIN!!!!");
+				}
+				else if (!findValidMoves ())
+				{
+					endTime = new Date ().getTime ();
+					updateTime = false;
+					alert ("NO VALID MOVES!!!!");
+				}
+			}
+			
+			function mouseDown (e) {
+				if (!processInput)
+					return;
+
+				screenPressed = true;
+
+				var col = Math.floor ((e.clientX - BOARD_OFFSET.x) / PEG_SIZE) | 0,
+					row = Math.floor ((e.clientY - BOARD_OFFSET.y) / PEG_SIZE) | 0;
+
+				if (getPeg (col, row) != 1)
+				{
+					if (tryMakeMove (selectedPeg[0], selectedPeg[1], col, row))
+					{
+						selectedPeg = [col, row];
+						checkGame ();
+					}
+					else
+						selectedPeg = [-1, -1];
+				}
+				else
+					selectedPeg = [col, row];
+
+				invalidateBoard ();
+			}
+			
+			function mouseUp (e) {
+				screenPressed = false;
+				
+				if (!processInput)
+				{
+					isDragging = false;
+					return;
+				}
+
+				if (isDragging)
+				{
+					var col = Math.floor ((e.clientX - BOARD_OFFSET.x) / PEG_SIZE) | 0,
+						row = Math.floor ((e.clientY - BOARD_OFFSET.y) / PEG_SIZE) | 0;
+
+					setPeg (selectedPeg[0], selectedPeg[1], 1);
+					if (!tryMakeMove (selectedPeg[0], selectedPeg[1], col, row))
+					{
+						processInput = false;
+
+						setPeg (selectedPeg[0], selectedPeg[1], 0);
+						
+						var startX = draggedPegX,
+							startY = draggedPegY;
+
+						AnimationTask.add (function (progress) {
+							var stepX = (BOARD_OFFSET.x + (selectedPeg[0] * PEG_SIZE)) - draggedPegX,
+								stepY = (BOARD_OFFSET.y + (selectedPeg[1] * PEG_SIZE)) - draggedPegY;
+
+							draggedPegX = startX + (stepX * progress);
+							draggedPegY = startY + (stepY * progress);
+
+							if (progress == 1.0)
+							{
+								setPeg (selectedPeg[0], selectedPeg[1], 1);
+							
+								invalidateBoard ();
+								isDragging = false;
+								processInput = true;
+							}
+						}, 64);
+					}
+					else
+					{
+						selectedPeg = [col, row];
+						isDragging = false;
+						checkGame ();
+					}
+				}
+			}
+			
+			function mouseMove (e) {
+				if (!screenPressed || selectedPeg[0] == -1 || selectedPeg[1] == -1 || !processInput)
+					return;
+
+				if (!isDragging)
+				{
+					var col = selectedPeg[0],
+						row = selectedPeg[1];
+
+					var dx = e.clientX - (col * PEG_SIZE),
+						dy = e.clientY - (row * PEG_SIZE);
+					
+					var dist = Math.sqrt (dx*dx + dy*dy);
+					if (dist > PEG_SIZE / 2)
+					{
+						setPeg (col, row, 0);
+						isDragging = true;
+						dragX = e.clientX;
+						dragY = e.clientY;
+						draggedPegX = BOARD_OFFSET.x + (col * PEG_SIZE);
+						draggedPegY = BOARD_OFFSET.y + (row * PEG_SIZE);
+					}
+				}
+				else
+				{
+					draggedPegX += e.clientX - dragX;
+					draggedPegY += e.clientY - dragY;
+					
+					dragX = e.clientX;
+					dragY = e.clientY;
+				}
+			}
+
+			canvas.addEventListener ("mousedown", mouseDown, false);
+			canvas.addEventListener ("mouseup", mouseUp, false);
+			canvas.addEventListener ("mousemove", mouseMove, false);
+
+			var lastTouch;
+			
+			canvas.addEventListener ("touchstart", function (e) {
+				lastTouch = e.touches[0];
+				mouseDown (lastTouch);
+				
+				e.stopPropagation ();
+				e.preventDefault ();
+			}, false);
+
+			canvas.addEventListener ("touchend", function (e) {
+				mouseUp (lastTouch);
+				
+				e.stopPropagation ();
+				e.preventDefault ();
+			}, false);
+
+			canvas.addEventListener ("touchmove", function (e) {
+				lastTouch = e.touches[0];
+				mouseMove (lastTouch);
+				
+				e.stopPropagation ();
+				e.preventDefault ();
+			}, false);
+
+			window.addEventListener ("resize", function () {
+				canvas.width = window.innerWidth;
+				canvas.height = window.innerHeight;
+
+				updateUIConstraints ();
+				invalidateBoard ();
+			});
+
+			function init ()
+			{
+				startTime = new Date ().getTime ();
+				
+				initBoard ();
+				AnimationTask.add (renderBoard);
+			}
+		
+			updateUIConstraints ();
+			init ();
+
+			</script>
+	</body>
+</html>

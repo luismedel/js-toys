@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style type="text/css">
+			* { margin:0; padding:0; }
+			html { background-color:#000; }
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" width="420" height="420"></canvas>
+
+		<script type="text/javascript" src="../inc/animationtask.js"></script>
+		<script type="text/javascript" src="circularpb.js"></script>
+		<script type="text/javascript">
+
+			var canvas = document.getElementById ("canvas"),
+				ctx = canvas.getContext ("2d");
+
+			var pbs = [],
+				colors = ["Cornflower blue", "Light Sea Green", "Green", "Yellow", "Orange", "Red"];
+
+			for (var i = 0; i < colors.length; i++)
+			{
+				var c = colors[i].replace (/\s+/g, "");				
+				pbs.push (new CircularPB (200, 200, 50 + (i * 20), { valueStyle: c, text:colors[i] }));
+			}
+
+			function animateInit ()
+			{
+				AnimationTask.add (function (progress) {
+					ctx.fillStyle = "#000";
+					ctx.fillRect (0, 0, canvas.width, canvas.height);
+
+					var f = Math.sin (progress * Math.PI/2.0);
+					
+					for (var i = 0; i < pbs.length; i++)
+					{
+						var pb = pbs[i];
+						pb.renderBackground (ctx, pb.getRadForValue (100 * f));
+					}
+				}, 500);
+			}
+			
+			function animateBars ()
+			{
+				AnimationTask.add (function (progress) {
+					ctx.fillStyle = "#000";
+					ctx.fillRect (0, 0, canvas.width, canvas.height);
+
+					for (var i = 0; i < pbs.length; i++)
+					{
+						var pb = pbs[i];
+						pb.updateProgress (progress);
+						pb.text2 = (pb.currentValue | 0).toString ();
+						pb.render (ctx);
+					}
+				}, 750);
+			}
+
+
+			function start ()
+			{
+				animateInit ();
+
+				setInterval (function () {
+					for (var i = 0; i < pbs.length; i++)
+						pbs[i].setValue ((Math.random () * 100) | 0);
+					
+					animateBars ();
+				}, 900);
+			}
+
+			start ();
+		</script>
+	</body>
+</html>

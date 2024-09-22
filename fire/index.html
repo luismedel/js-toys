@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style type="text/css">
+			* { margin:0; padding:0; }
+			html { background-color:#000; }
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" width="500" height="500"><canvas>
+
+		<script type="text/javascript" src="../inc/animationtask.js"></script>
+		<script type="text/javascript">
+			var FIRE_WIDTH = 100,
+				FIRE_HEIGHT = 100,
+				PX_SIZE = 5;
+
+			var canvas = document.getElementById ("canvas"),
+				ctx = canvas.getContext ("2d");
+
+			var buffer = document.createElement ("canvas");
+			buffer.width = canvas.width;
+			buffer.height = canvas.height;
+			var bctx = buffer.getContext ("2d");
+
+			function colorRamp (from, to, steps, dest)
+			{
+				for (var i = 0; i < steps; i++)
+				{
+					var r = (from[0] + ((to[0] - from[0]) / steps*i)) | 0,
+						g = (from[1] + ((to[1] - from[1]) / steps*i)) | 0,
+						b = (from[2] + ((to[2] - from[2]) / steps*i)) | 0;
+					
+					dest.push ("rgb(" + r + "," + g + "," + b + ")");
+				}
+			}
+			
+			var colors = [];
+			colorRamp ([0, 0, 0], [0, 0, 32], 8, colors);
+			colorRamp ([0, 0, 32], [128, 0, 32], 10, colors);
+			colorRamp ([128, 0, 32], [255, 128, 0], 10, colors);
+			colorRamp ([255, 128, 0], [255, 255, 255], 48, colors);
+
+			var lastColor = colors.length;
+				
+			var fire = new Array (FIRE_WIDTH * FIRE_HEIGHT),
+				old = new Array (FIRE_WIDTH * FIRE_HEIGHT);
+
+			for (var i = 0; i < fire.length; i++)
+				fire[i] = old[i] = 0;
+
+			AnimationTask.add (function () {
+				for (var i = 0; i < FIRE_WIDTH; i++)
+				{
+					old[(FIRE_HEIGHT - 1)*FIRE_WIDTH + i] = Math.random () < 0.6 ? 0 : lastColor;
+					old[(FIRE_HEIGHT - 2)*FIRE_WIDTH + i] = Math.random () < 0.6 ? 0 : lastColor;
+					old[(FIRE_HEIGHT - 3)*FIRE_WIDTH + i] = Math.random () < 0.6 ? 0 : lastColor;
+				}
+
+				for (var offs = FIRE_WIDTH + 1; offs < ((FIRE_HEIGHT - 1) * FIRE_WIDTH) - 1; offs++)
+				{
+					var s = old[offs + FIRE_WIDTH - 1]
+						+ old[offs + FIRE_WIDTH + 1]
+						+ old[offs + FIRE_WIDTH]
+						+ old[offs - FIRE_WIDTH]
+						+ old[offs - FIRE_WIDTH - 1]
+						+ old[offs - FIRE_WIDTH + 1]
+						+ old[offs + 1]
+						+ old[offs - 1];
+
+					var x = offs % FIRE_WIDTH,
+						y = (offs / FIRE_WIDTH) | 0;
+
+					var v = fire[offs - FIRE_WIDTH] = Math.max (0, (s >> 3) - ((Math.random () * 1.5) | 0));
+					
+					bctx.fillStyle = colors[v];
+					bctx.fillRect (x * PX_SIZE, y * PX_SIZE, PX_SIZE, PX_SIZE);
+				}
+
+				for (var i = 0; i < fire.length; i++)
+					old[i]= fire[i];
+
+				ctx.drawImage (buffer, 0, 0, canvas.width, canvas.height - (PX_SIZE * 4),
+										0, 0, canvas.width, canvas.height - (PX_SIZE * 4));
+			});
+		</script>
+	</body>
+</html>
