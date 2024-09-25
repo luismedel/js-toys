@@ -404,11 +404,12 @@
 			});
 
 			(function() {
-				function resizeCanvas() {
+				function resizeCanvas()
+				{
 					canvas.width = window.innerWidth;
 					canvas.height = window.innerHeight;
 				}
-				  // resize the canvas to fill browser window dynamically
+
 				window.addEventListener('resize', resizeCanvas, false);
 				resizeCanvas();
 			})();
