@@ -8,7 +8,7 @@ No planning. No quality. Only raw coding and fun.
 
 Clock and calendar widgets. I use it on an old phone in kiosk mode.
 
-![Demo](https://toys.luismedel.com/clock/index.html)
+[Demo](https://toys.luismedel.com/clock/index.html)
 
 ![Screenshot](https://toys.luismedel.com/clock/screenshot.jpg "Screenshot")
 
@@ -18,7 +18,7 @@ A peg solitaire game.
 
 One afternoon, my daughter told me she wanted to play peg solitaire on her iPad. After searching for a very simple game on the App Store (no internet, not ads, no logins...) without luck, I ended writing her the game that same afternoon.
 
-![Demo](https://toys.luismedel.com/peg-solitaire/index.html)
+[Demo](https://toys.luismedel.com/peg-solitaire/index.html)
 
 ![Screenshot](https://toys.luismedel.com/peg-solitaire/screenshot.png "Screenshot")
 
@@ -26,7 +26,7 @@ One afternoon, my daughter told me she wanted to play peg solitaire on her iPad.
 
 Pixel morph effect.
 
-![Demo](https://toys.luismedel.com/morph/index.html)
+[Demo](https://toys.luismedel.com/morph/index.html)
 
 ![Screenshot](https://toys.luismedel.com/morph/preview.gif "Preview")
 
@@ -34,7 +34,7 @@ Pixel morph effect.
 
 Realtime lens effect.
 
-![Demo](https://toys.luismedel.com/lens/index.html)
+[Demo](https://toys.luismedel.com/lens/index.html)
 
 ![Screenshot](https://toys.luismedel.com/lens/preview.gif "Preview")
 
@@ -42,7 +42,7 @@ Realtime lens effect.
 
 Basic physical simulation.
 
-![Demo](https://toys.luismedel.com/mesh/index.html)
+[Demo](https://toys.luismedel.com/mesh/index.html)
 
 ![Screenshot](https://toys.luismedel.com/mesh/preview.gif "Preview")
 
@@ -50,7 +50,7 @@ Basic physical simulation.
 
 My version of the mighty [fire effect](http://www.pouet.net/prod.php?which=15071) by Jare.
 
-![Demo](https://toys.luismedel.com/fire/index.html)
+[Demo](https://toys.luismedel.com/fire/index.html)
 
 ![Screenshot](https://toys.luismedel.com/fire/preview.gif "Preview")
 
