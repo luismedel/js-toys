@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style type="text/css">
+			* { margin:0; padding:0; }
+			html { background-color:#000; }
+			canvas { display: block; }
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" width="800" height="800"><canvas>
+
+		<script type="text/javascript" src="../inc/animationtask.js"></script>
+		<script type="text/javascript">
+			const canvas = document.getElementById ("canvas");
+			const ctx = canvas.getContext ("2d");
+
+			const BACKGROUND = "#000";
+			const AMBER = "#ff7400";
+			const DIMMED_AMBER = "#994400";
+
+			// Hardcoded for Spain (for now)
+			const FIRST_DOW = 1;  // first day of week
+			const WEEKEND = [6, 0];
+
+			const WEEKDAYS = new Array(7).fill(0).map((x, i) => new Intl.DateTimeFormat('default', { weekday: 'narrow' }).format(new Date(1, 3, i)));
+
+
+			class UIWidget
+			{
+				constructor(width, height, attrs)
+				{
+					this._width = width;
+					this._height = height;
+
+					this.attrs = attrs || {};
+
+					this._canvas = document.createElement("canvas");
+					this._canvas.width = this._width;
+					this._canvas.height = this._height;
+					this._ctx = this._canvas.getContext("2d");
+
+					this._isDirty = true;
+				}
+
+				get width() { return this._width; }
+				get height() { return this._height; }
+				get isDirty() { return this._isDirty; }
+
+				set value(value)
+				{
+					this._value = value;
+					this._isDirty = true;
+				}
+
+				get value() { return this._value; }
+
+				resize(width, height)
+				{
+					this._width = width;
+					this._height = height;
+
+					this._canvas.width = this._width;
+					this._canvas.height = this._height;
+
+					this._isDirty = true;
+				}
+
+				draw(force = false)
+				{
+					if (this.isDirty || force)
+					{
+						this.drawInternal(this._ctx);
+						this._isDirty = false;
+					}
+
+					return this._canvas;
+				}
+
+				drawInternal(ctx)
+				{
+					throw new Error("Not implemented");
+				}
+
+				handleEvent(event)
+				{
+					if (event.type == "click")
+						return this.handleClick(event);
+					return false;
+				}
+
+				handleClick(event)
+				{
+					return false;
+				}
+			}
+
+			class ClockWidget extends UIWidget
+			{
+				constructor(width, height, attrs)
+				{
+					const defaultAttrs = {
+						color: AMBER
+					};
+
+					const size = Math.max(width, height);
+					super(size, size, { ...defaultAttrs, ...attrs });
+
+					this.value = new Date();
+				}
+
+				set value(value)
+				{
+					const prev = this.value;
+					if (prev &&
+					    value.getHours() == prev.getHours() &&
+						value.getMinutes() == prev.getMinutes() &&
+						value.getSeconds() == prev.getSeconds())
+						return;
+
+					super.value = value;
+				}
+
+				get value() { return super.value; }
+
+				drawInternal(ctx)
+				{
+					const PI2 = Math.PI * 2;
+					const MARGIN = 5;
+
+					ctx.clearRect(0, 0, this._width, this._height);
+
+					ctx.imageSmoothingEnabled = true;
+					ctx.imageSmoothingQuality = "high";
+					ctx.strokeStyle = this.attrs.color;
+					ctx.lineWidth = 1;
+
+					for (let i = 0; i < 60; i++)
+					{
+						const angle = PI2 / 60 * i;
+						const isHour = i % 5 == 0;
+
+						ctx.save();
+						ctx.translate(this._width / 2, this._height / 2);
+						ctx.rotate(angle);
+						ctx.beginPath();
+
+						ctx.lineWidth = isHour ? 3 : 1
+						ctx.strokeStyle = isHour ? this.attrs.color : this.attrs.secondaryColor;
+
+						ctx.moveTo(0, this._height / 2 - MARGIN);
+						ctx.lineTo(0, this._height / 2 - MARGIN - (isHour ? 15 : 10));
+
+						ctx.stroke();
+						ctx.restore();
+					}
+					
+					const time = this.value;
+					const hh = time.getHours();
+					const mm = time.getMinutes();
+					const ss = time.getSeconds();
+
+					ctx.save();
+					ctx.strokeStyle = this.attrs.secondaryColor;
+					ctx.translate(this._width / 2, this._height / 2);
+					ctx.rotate((PI2/60) * ss);
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.moveTo(0, 0);
+					ctx.lineTo(0, -this._height / 2.5);
+					ctx.stroke();
+					ctx.restore();
+
+					ctx.save();
+					ctx.translate(this._width / 2, this._height / 2);
+					ctx.rotate((PI2/60) * (mm + ss/60));
+					ctx.lineWidth = 4;
+					ctx.beginPath();
+					ctx.moveTo(0, 0);
+					ctx.lineTo(0, -this._height / 3);
+					ctx.stroke();
+					ctx.restore();
+
+					ctx.save();
+					ctx.translate(this._width / 2, this._height / 2);
+					ctx.rotate((PI2/12) * (hh + mm/60));
+					ctx.lineWidth = 6;
+					ctx.beginPath();
+					ctx.moveTo(0, 0);
+					ctx.lineTo(0, -this._height / 4);
+					ctx.stroke();
+					ctx.restore();
+				}
+
+				handleClick(event)
+				{
+					this.attrs.color = this.attrs.color == AMBER ? DIMMED_AMBER : AMBER;
+					this._isDirty = true;
+					return true;
+				}
+			}
+
+			class CalendarWidget extends UIWidget
+			{
+				constructor(width, height, attrs)
+				{
+					const defaultAttrs = {
+						weekdayColor: AMBER,
+						weekendColor: DIMMED_AMBER,
+						highlightDay: false
+					};
+
+					super(width, height, { ...defaultAttrs, ...attrs });
+
+					this.value = new Date();
+				}
+
+				set value(value)
+				{
+					const prev = this.value;
+					if (prev &&
+					    value.getFullYear() == prev.getFullYear() &&
+						value.getMonth() == prev.getMonth() &&
+						value.getDate() == prev.getDate())
+						return;
+
+					super.value = value;
+				}
+
+				get value() { return super.value; }
+
+				drawInternal(ctx)
+				{
+					const ROWS = 9;
+					const COLS = 8;
+					const ROW_HEIGHT = Math.floor(this._height / (ROWS));
+					const COL_WIDTH = Math.floor(this._width / COLS);
+					const FONT_SIZE = Math.ceil(ROW_HEIGHT * 0.5);
+					const OFFSET_X = COL_WIDTH / 2;
+					const OFFSET_Y = ROW_HEIGHT / 2;
+
+					const FONT = `${FONT_SIZE}px "DIN Alternate"`
+
+					const date = this.value;
+					const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+					const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+					let firstDow = (firstDay.getDay() - FIRST_DOW + 7) % 7;
+					let currentDayOfWeek = firstDow;
+
+					const nextMonthStart = lastDay.getDate();
+
+					ctx.clearRect(0, 0, this._width, this._height);
+
+					ctx.font = FONT;
+					ctx.textRendering = "optimizeLegibility";
+					ctx.textBaseline = "middle";
+					ctx.imageSmoothingEnabled = true;
+					ctx.imageSmoothingQuality = "high";
+					ctx.lineWidth = 1;
+
+					let rowPos = OFFSET_Y;
+
+					const month = date.toLocaleString('default', { month: 'long' }).toUpperCase();
+					ctx.textAlign = "left";
+					ctx.fillStyle = this.attrs.weekdayColor;
+					ctx.fillText(month, OFFSET_X - 10, rowPos);
+					ctx.textAlign = "center";
+
+					ctx.save();
+					ctx.font = `${FONT} italic`;
+					rowPos += ROW_HEIGHT * 1.25;
+					for (let i = 0; i < 7; i++)
+					{
+						const day = (i + FIRST_DOW) % 7;
+						ctx.fillStyle = WEEKEND.includes(day) ? this.attrs.weekendColor : this.attrs.weekdayColor;
+						ctx.fillText(WEEKDAYS[day], OFFSET_X + (i  * COL_WIDTH), rowPos);
+					}
+					ctx.restore();
+
+					rowPos += ROW_HEIGHT * 1.25;
+					let day = 1;
+					let dow = 0;
+					for (let row = 0; row < 6; row++)
+					{
+						for (let col = 0; col < 7; col++)
+						{
+							if (row == 0 && col < firstDow)
+								continue;
+
+							if (day > nextMonthStart)
+								break;
+
+							const colPos = OFFSET_X + (col * COL_WIDTH);
+							const isWeekend = WEEKEND.includes((currentDayOfWeek + FIRST_DOW) % 7);
+
+							ctx.save();
+							ctx.fillStyle = isWeekend ? this.attrs.weekendColor : this.attrs.weekdayColor;
+							if (this.attrs.highlightDay && day == date.getDate())
+							{
+								ctx.beginPath();
+								ctx.arc(colPos, rowPos, COL_WIDTH/2.25, 0, Math.PI*2);
+								ctx.closePath();
+								ctx.fill();
+								ctx.fillStyle = BACKGROUND;
+							}
+							ctx.fillText(day, colPos, rowPos);
+							ctx.restore()
+
+							day++;
+
+							currentDayOfWeek = (currentDayOfWeek + 1) % 7;
+						}
+						rowPos += ROW_HEIGHT;
+					}
+				}
+
+				handleClick(event)
+				{
+					this.attrs.weekdayColor = this.attrs.weekdayColor == AMBER ? DIMMED_AMBER : AMBER;
+					this._isDirty = true;
+					return true;
+				}
+			}
+
+			function processLayout(layout)
+			{
+				const result = Array(layout.length);
+
+				for (let i = 0; i < layout.length; i++)
+				{
+					const item = layout[i];
+					result[i] = {
+						x: item.x,
+						y: item.y,
+						valueFn: item.valueFn,
+						widget: item.widget
+					}
+				}
+
+				return result;
+			}
+
+			const layout = [
+				{
+					x: 0,
+					y: 0,
+					widget: new ClockWidget(256, 256, {
+						color: AMBER,
+						secondaryColor: DIMMED_AMBER
+					}),
+					valueFn: () => new Date(),
+				},
+
+				{
+					x: 300,
+					y: 0,
+					widget: new CalendarWidget(256, 256, {
+						weekdayColor: AMBER,
+						weekendColor: DIMMED_AMBER,
+						highlightDay: true
+					}),
+					valueFn: () => new Date()
+				}
+			];
+
+			AnimationTask.add (function () {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				ctx.imageSmoothingEnabled = true;
+				ctx.imageSmoothingQuality = "high";
+
+				ctx.filter = 'blur(4px)';
+				for (let i = 0; i < layout.length; i++)
+				{
+					const item = layout[i];
+					if (item.valueFn)
+						item.widget.value = item.valueFn();
+					ctx.drawImage(item.widget.draw(), item.x, item.y);
+				}
+
+				ctx.filter = 'none';
+				for (let i = 0; i < layout.length; i++)
+				{
+					const item = layout[i];
+					ctx.drawImage(item.widget.draw(), item.x, item.y);
+				}
+			});
+
+			canvas.addEventListener("click", function(event) {
+				for (let i = 0; i < layout.length; i++)
+				{
+					const item = layout[i];
+					const localX = event.clientX - canvas.offsetLeft;
+					const localY = event.clientY - canvas.offsetTop;
+
+					if (localX < item.x || localX > item.x + item.widget.width
+					|| localY < item.y || localY > item.y + item.widget.height)
+						continue;
+
+					if (item.widget.handleEvent(event))
+						break;
+				}
+			});
+
+			(function() {
+				function resizeCanvas() {
+					canvas.width = window.innerWidth;
+					canvas.height = window.innerHeight;
+				}
+				  // resize the canvas to fill browser window dynamically
+				window.addEventListener('resize', resizeCanvas, false);
+				resizeCanvas();
+			})();
+		</script>
+	</body>
+</html>

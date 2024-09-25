@@ -4,15 +4,6 @@ Some small (old-shool) amusements I like to code from time to time.
 
 No planning. No quality. Only raw coding and fun.
 
-> Note I had this toys scattered over a bunch of repos, which no longer exist:
->
-> - luismedel/circularpb
-> - luismedel/jsfire
-> - luismedel/jslens
-> - luismedel/jsmesh
-> - luismedel/jsmorph
-> - luismedel/jspegsol
-
 ## Running the demos
 
 Open the included html files in order to view run the toy. But browser security is a shitshow, so some of them will require to use a web server (I don't remember which).
@@ -24,6 +15,12 @@ $ make serve
 ```
 
 Open `http://localhost:8000` in your web browser and navigate the repo tree up to the html you want to open.
+
+## clock
+
+Clock and calendar widgets. I use it on an old phone in kiosk mode.
+
+![Screenshot](https://raw.githubusercontent.com/luismedel/js-toys/master/clock/screenshot.png "Screenshot")
 
 ## peg-solitaire
 
