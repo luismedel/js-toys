@@ -20,7 +20,7 @@ Open `http://localhost:8000` in your web browser and navigate the repo tree up t
 
 Clock and calendar widgets. I use it on an old phone in kiosk mode.
 
-![Screenshot](https://raw.githubusercontent.com/luismedel/js-toys/master/clock/screenshot.png "Screenshot")
+![Screenshot](https://raw.githubusercontent.com/luismedel/js-toys/master/clock/screenshot.jpg "Screenshot")
 
 ## peg-solitaire
 
